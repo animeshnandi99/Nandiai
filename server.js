@@ -1,11 +1,18 @@
 import express from "express";
 import cors from "cors";
 import OpenAI from "openai";
+import path from "path";
+import { fileURLToPath } from "url";
+import dotenv from "dotenv";
 
+dotenv.config();
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+
 app.use(cors());
 app.use(express.json());
-app.use(express.static("public"));
+app.use(express.static(path.join(__dirname, "public")));
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
@@ -15,17 +22,29 @@ app.post("/chat", async (req, res) => {
   try {
     const userMessage = req.body.message;
 
-    const response = await client.responses.create({
-      model: "gpt-4.1-mini",
-      input: userMessage
+    if (!userMessage) {
+      return res.status(400).json({
+        reply: "❌ Message is required."
+      });
+    }
+
+    const response = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: "You are Nandiai AI assistant." },
+        { role: "user", content: userMessage }
+      ]
     });
 
+    const reply = response.choices[0].message.content;
+
     res.json({
-      reply: response.output_text
+      reply: reply
     });
 
   } catch (err) {
-    res.json({
+    console.error("API Error:", err);
+    res.status(500).json({
       reply: "❌ AI error. Check API key or billing."
     });
   }
@@ -33,5 +52,5 @@ app.post("/chat", async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log("NandiAi running on port", PORT);
+  console.log(`Nandiai running on port ${PORT}`);
 });
